@@ -184,6 +184,10 @@ export default function App() {
     setAfficherAjoutProduit(false)
   }
 
+  function supprimerProduit(id) {
+    setProduits(prev => prev.filter(p => p.id !== id))
+  }
+
   return (
     <div className="min-h-screen bg-amber-50 pb-20">
       <header className="bg-amber-800 text-white p-4 flex items-center gap-2">
@@ -198,6 +202,7 @@ export default function App() {
             onAjouterPanier={ouvrirSelecteurQte}
             panier={panier}
             onOuvrirAjout={() => setAfficherAjoutProduit(true)}
+            onSupprimer={supprimerProduit}
           />
         )}
 
@@ -252,7 +257,13 @@ export default function App() {
   )
 }
 
-function PageStock({ produits, onAjouterPanier, onOuvrirAjout }) {
+function PageStock({ produits, onAjouterPanier, onOuvrirAjout, onSupprimer }) {
+  function confirmerSuppression(p) {
+    if (window.confirm(`Supprimer "${p.nom}" du stock ? Cette action est irréversible.`)) {
+      onSupprimer(p.id)
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex justify-between items-center">
@@ -270,13 +281,22 @@ function PageStock({ produits, onAjouterPanier, onOuvrirAjout }) {
             </div>
             <div className="text-sm text-gray-600">Prix : {formatFCFA(p.prixVente)}</div>
           </div>
-          <button
-            onClick={() => onAjouterPanier(p)}
-            disabled={p.stock <= 0}
-            className="bg-amber-700 text-white px-3 py-2 rounded disabled:opacity-40"
-          >
-            Ajouter
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onAjouterPanier(p)}
+              disabled={p.stock <= 0}
+              className="bg-amber-700 text-white px-3 py-2 rounded disabled:opacity-40"
+            >
+              Ajouter
+            </button>
+            <button
+              onClick={() => confirmerSuppression(p)}
+              className="text-red-600 text-xl px-2"
+              aria-label="Supprimer le produit"
+            >
+              🗑️
+            </button>
+          </div>
         </div>
       ))}
     </div>
