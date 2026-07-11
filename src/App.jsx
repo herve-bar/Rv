@@ -48,6 +48,7 @@ export default function App() {
   const [panier, setPanier] = useState([])
   const [produitPourQte, setProduitPourQte] = useState(null)
   const [qteChoisie, setQteChoisie] = useState(1)
+  const [afficherAjoutProduit, setAfficherAjoutProduit] = useState(false)
 
   useEffect(() => {
     localStorage.setItem(LS_PRODUITS, JSON.stringify(produits))
@@ -175,6 +176,14 @@ export default function App() {
     return factures.reduce((s, f) => s + (f.benefice || 0), 0)
   }
 
+  function ajouterProduit(data) {
+    setProduits(prev => {
+      const nouvelId = prev.length > 0 ? Math.max(...prev.map(p => p.id)) + 1 : 1
+      return [...prev, { id: nouvelId, ...data }]
+    })
+    setAfficherAjoutProduit(false)
+  }
+
   return (
     <div className="min-h-screen bg-amber-50 pb-20">
       <header className="bg-amber-800 text-white p-4 flex items-center gap-2">
@@ -184,7 +193,12 @@ export default function App() {
 
       <main className="p-4">
         {page === 'stock' && (
-          <PageStock produits={produits} onAjouterPanier={ouvrirSelecteurQte} panier={panier} />
+          <PageStock
+            produits={produits}
+            onAjouterPanier={ouvrirSelecteurQte}
+            panier={panier}
+            onOuvrirAjout={() => setAfficherAjoutProduit(true)}
+          />
         )}
 
         {page === 'panier' && (
@@ -213,6 +227,13 @@ export default function App() {
         />
       )}
 
+      {afficherAjoutProduit && (
+        <FormAjoutProduit
+          onAjouter={ajouterProduit}
+          onAnnuler={() => setAfficherAjoutProduit(false)}
+        />
+      )}
+
       <nav className="fixed bottom-0 left-0 right-0 bg-amber-800 text-white flex justify-around p-2">
         <button onClick={() => setPage('stock')} className={page === 'stock' ? 'font-bold underline' : ''}>
           📦 Stock
@@ -231,10 +252,15 @@ export default function App() {
   )
 }
 
-function PageStock({ produits, onAjouterPanier }) {
+function PageStock({ produits, onAjouterPanier, onOuvrirAjout }) {
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-bold text-amber-900">Stock</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-bold text-amber-900">Stock</h2>
+        <button onClick={onOuvrirAjout} className="bg-green-700 text-white px-3 py-2 rounded text-sm">
+          + Produit
+        </button>
+      </div>
       {produits.map(p => (
         <div key={p.id} className="bg-white rounded-lg p-3 shadow flex justify-between items-center">
           <div>
@@ -253,6 +279,101 @@ function PageStock({ produits, onAjouterPanier }) {
           </button>
         </div>
       ))}
+    </div>
+  )
+}
+
+function FormAjoutProduit({ onAjouter, onAnnuler }) {
+  const [nom, setNom] = useState('')
+  const [lotTaille, setLotTaille] = useState('')
+  const [lotPrix, setLotPrix] = useState('')
+  const [prixVente, setPrixVente] = useState('')
+  const [stock, setStock] = useState('')
+  const [stockAlerte, setStockAlerte] = useState('')
+
+  function valider() {
+    if (!nom || !lotTaille || !lotPrix || !prixVente || !stock) {
+      alert('Merci de remplir tous les champs obligatoires.')
+      return
+    }
+    onAjouter({
+      nom,
+      lotTaille: parseFloat(lotTaille),
+      lotPrix: parseFloat(lotPrix),
+      prixVente: parseFloat(prixVente),
+      stock: parseInt(stock, 10),
+      stockAlerte: stockAlerte ? parseInt(stockAlerte, 10) : 5,
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-4 w-full max-w-sm space-y-2 max-h-[90vh] overflow-y-auto">
+        <h3 className="font-bold text-lg mb-2">Nouveau produit</h3>
+
+        <label className="block text-sm text-gray-600">Nom du produit</label>
+        <input
+          type="text"
+          value={nom}
+          onChange={e => setNom(e.target.value)}
+          className="w-full border rounded p-2"
+          placeholder="Ex : Sucre (sac 50kg)"
+        />
+
+        <label className="block text-sm text-gray-600">Taille du lot (kg, L, unités...)</label>
+        <input
+          type="number"
+          value={lotTaille}
+          onChange={e => setLotTaille(e.target.value)}
+          className="w-full border rounded p-2"
+          placeholder="Ex : 50"
+        />
+
+        <label className="block text-sm text-gray-600">Prix d'achat du lot entier (FCFA)</label>
+        <input
+          type="number"
+          value={lotPrix}
+          onChange={e => setLotPrix(e.target.value)}
+          className="w-full border rounded p-2"
+          placeholder="Ex : 30000"
+        />
+
+        <label className="block text-sm text-gray-600">Prix de vente unitaire (FCFA)</label>
+        <input
+          type="number"
+          value={prixVente}
+          onChange={e => setPrixVente(e.target.value)}
+          className="w-full border rounded p-2"
+          placeholder="Ex : 750"
+        />
+
+        <label className="block text-sm text-gray-600">Stock initial</label>
+        <input
+          type="number"
+          value={stock}
+          onChange={e => setStock(e.target.value)}
+          className="w-full border rounded p-2"
+          placeholder="Ex : 50"
+        />
+
+        <label className="block text-sm text-gray-600">Seuil d'alerte stock bas (optionnel)</label>
+        <input
+          type="number"
+          value={stockAlerte}
+          onChange={e => setStockAlerte(e.target.value)}
+          className="w-full border rounded p-2"
+          placeholder="Ex : 10"
+        />
+
+        <div className="flex gap-2 pt-2">
+          <button onClick={onAnnuler} className="flex-1 bg-gray-200 py-2 rounded">
+            Annuler
+          </button>
+          <button onClick={valider} className="flex-1 bg-amber-700 text-white py-2 rounded">
+            Ajouter
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
