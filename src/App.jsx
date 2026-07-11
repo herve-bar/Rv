@@ -472,7 +472,6 @@ function PageFactures({ factures }) {
           <div className="font-semibold">Facture #{f.numero}</div>
           <div className="text-sm text-gray-600">{new Date(f.date).toLocaleString('fr-FR')}</div>
           <div className="text-sm">Total : {formatFCFA(f.totalVente)}</div>
-          <div className="text-sm text-green-700">Bénéfice : {formatFCFA(f.benefice)}</div>
         </div>
       ))}
     </div>
