@@ -49,6 +49,7 @@ export default function App() {
   const [produitPourQte, setProduitPourQte] = useState(null)
   const [qteChoisie, setQteChoisie] = useState(1)
   const [afficherAjoutProduit, setAfficherAjoutProduit] = useState(false)
+  const [produitAModifier, setProduitAModifier] = useState(null)
 
   useEffect(() => {
     localStorage.setItem(LS_PRODUITS, JSON.stringify(produits))
@@ -184,6 +185,11 @@ export default function App() {
     setAfficherAjoutProduit(false)
   }
 
+  function modifierProduit(id, data) {
+    setProduits(prev => prev.map(p => (p.id === id ? { ...p, ...data } : p)))
+    setProduitAModifier(null)
+  }
+
   function supprimerProduit(id) {
     setProduits(prev => prev.filter(p => p.id !== id))
   }
@@ -203,6 +209,7 @@ export default function App() {
             panier={panier}
             onOuvrirAjout={() => setAfficherAjoutProduit(true)}
             onSupprimer={supprimerProduit}
+            onModifier={p => setProduitAModifier(p)}
           />
         )}
 
@@ -233,9 +240,19 @@ export default function App() {
       )}
 
       {afficherAjoutProduit && (
-        <FormAjoutProduit
-          onAjouter={ajouterProduit}
+        <FormProduit
+          titre="Nouveau produit"
+          onValider={ajouterProduit}
           onAnnuler={() => setAfficherAjoutProduit(false)}
+        />
+      )}
+
+      {produitAModifier && (
+        <FormProduit
+          titre="Modifier le produit"
+          produit={produitAModifier}
+          onValider={data => modifierProduit(produitAModifier.id, data)}
+          onAnnuler={() => setProduitAModifier(null)}
         />
       )}
 
@@ -257,7 +274,7 @@ export default function App() {
   )
 }
 
-function PageStock({ produits, onAjouterPanier, onOuvrirAjout, onSupprimer }) {
+function PageStock({ produits, onAjouterPanier, onOuvrirAjout, onSupprimer, onModifier }) {
   function confirmerSuppression(p) {
     if (window.confirm(`Supprimer "${p.nom}" du stock ? Cette action est irréversible.`)) {
       onSupprimer(p.id)
@@ -290,6 +307,13 @@ function PageStock({ produits, onAjouterPanier, onOuvrirAjout, onSupprimer }) {
               Ajouter
             </button>
             <button
+              onClick={() => onModifier(p)}
+              className="text-amber-800 text-xl px-2"
+              aria-label="Modifier le produit"
+            >
+              ✏️
+            </button>
+            <button
               onClick={() => confirmerSuppression(p)}
               className="text-red-600 text-xl px-2"
               aria-label="Supprimer le produit"
@@ -303,33 +327,33 @@ function PageStock({ produits, onAjouterPanier, onOuvrirAjout, onSupprimer }) {
   )
 }
 
-function FormAjoutProduit({ onAjouter, onAnnuler }) {
-  const [nom, setNom] = useState('')
-  const [lotTaille, setLotTaille] = useState('')
-  const [lotPrix, setLotPrix] = useState('')
-  const [prixVente, setPrixVente] = useState('')
-  const [stock, setStock] = useState('')
-  const [stockAlerte, setStockAlerte] = useState('')
+function FormProduit({ titre, produit, onValider, onAnnuler }) {
+  const [nom, setNom] = useState(produit?.nom || '')
+  const [lotTaille, setLotTaille] = useState(produit?.lotTaille ?? '')
+  const [lotPrix, setLotPrix] = useState(produit?.lotPrix ?? '')
+  const [prixVente, setPrixVente] = useState(produit?.prixVente ?? '')
+  const [stock, setStock] = useState(produit?.stock ?? '')
+  const [stockAlerte, setStockAlerte] = useState(produit?.stockAlerte ?? '')
 
   function valider() {
-    if (!nom || !lotTaille || !lotPrix || !prixVente || !stock) {
+    if (!nom || !lotTaille || !lotPrix || !prixVente || stock === '') {
       alert('Merci de remplir tous les champs obligatoires.')
       return
     }
-    onAjouter({
+    onValider({
       nom,
       lotTaille: parseFloat(lotTaille),
       lotPrix: parseFloat(lotPrix),
       prixVente: parseFloat(prixVente),
       stock: parseInt(stock, 10),
-      stockAlerte: stockAlerte ? parseInt(stockAlerte, 10) : 5,
+      stockAlerte: stockAlerte !== '' ? parseInt(stockAlerte, 10) : 5,
     })
   }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg p-4 w-full max-w-sm space-y-2 max-h-[90vh] overflow-y-auto">
-        <h3 className="font-bold text-lg mb-2">Nouveau produit</h3>
+        <h3 className="font-bold text-lg mb-2">{titre}</h3>
 
         <label className="block text-sm text-gray-600">Nom du produit</label>
         <input
@@ -367,7 +391,7 @@ function FormAjoutProduit({ onAjouter, onAnnuler }) {
           placeholder="Ex : 750"
         />
 
-        <label className="block text-sm text-gray-600">Stock initial</label>
+        <label className="block text-sm text-gray-600">Stock {produit ? '' : 'initial'}</label>
         <input
           type="number"
           value={stock}
@@ -390,7 +414,7 @@ function FormAjoutProduit({ onAjouter, onAnnuler }) {
             Annuler
           </button>
           <button onClick={valider} className="flex-1 bg-amber-700 text-white py-2 rounded">
-            Ajouter
+            {produit ? 'Enregistrer' : 'Ajouter'}
           </button>
         </div>
       </div>
