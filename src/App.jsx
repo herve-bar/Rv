@@ -499,10 +499,12 @@ function PageFactures({ factures }) {
         </div>
       ))}
     </div>
+  )function PageMarge({ produits, beneficeTotal }) {
+  const margePotentielleTotale = produits.reduce(
+    (s, p) => s + margeUnitaire(p) * p.stock,
+    0
   )
-}
 
-function PageMarge({ produits, beneficeTotal }) {
   return (
     <div className="space-y-3">
       <h2 className="text-lg font-bold text-amber-900">Marge</h2>
@@ -510,6 +512,11 @@ function PageMarge({ produits, beneficeTotal }) {
       <div className="bg-green-100 rounded-lg p-3 shadow">
         <div className="text-sm text-gray-700">Bénéfice total réalisé (toutes factures)</div>
         <div className="text-xl font-bold text-green-800">{formatFCFA(beneficeTotal)}</div>
+      </div>
+
+      <div className="bg-blue-100 rounded-lg p-3 shadow">
+        <div className="text-sm text-gray-700">Marge potentielle totale (sur le stock actuel)</div>
+        <div className="text-xl font-bold text-blue-800">{formatFCFA(margePotentielleTotale)}</div>
       </div>
 
       {produits.map(p => (
@@ -525,3 +532,5 @@ function PageMarge({ produits, beneficeTotal }) {
     </div>
   )
 }
+}
+
