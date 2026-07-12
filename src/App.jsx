@@ -40,6 +40,46 @@ function formatFCFA(n) {
   return Math.round(n).toLocaleString('fr-FR') + ' FCFA'
 }
 
+function formatDateHeure(dateStr) {
+  const d = new Date(dateStr)
+  const date = d.toLocaleDateString('fr-FR')
+  const heure = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return `${date} à ${heure}`
+}
+
+function genererTexteFacture(facture) {
+  const lignes = facture.items
+    .map(i => `${i.nom} x${i.quantite} = ${formatFCFA(i.prixVente * i.quantite)}`)
+    .join('\n')
+
+  return (
+    `🧾 RV - Facture #${facture.numero}\n` +
+    `${formatDateHeure(facture.date)}\n` +
+    (facture.client ? `Client : ${facture.client}\n` : '') +
+    `\n${lignes}\n\n` +
+    `Total : ${formatFCFA(facture.totalVente)}`
+  )
+}
+
+async function partagerFacture(facture) {
+  const texte = genererTexteFacture(facture)
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: `Facture RV #${facture.numero}`,
+        text: texte,
+      })
+      return
+    } catch (e) {
+      // annulé par l'utilisateur ou échec -> on retombe sur WhatsApp
+    }
+  }
+
+  const url = `https://wa.me/?text=${encodeURIComponent(texte)}`
+  window.open(url, '_blank')
+}
+
 export default function App() {
   const [page, setPage] = useState('stock')
   const [produits, setProduits] = useState(chargerProduits)
@@ -176,7 +216,7 @@ export default function App() {
 </head>
 <body>
   <h2>RV</h2>
-  <p>Facture #${facture.numero}<br/>${new Date(facture.date).toLocaleString('fr-FR')}</p>
+  <p>Facture #${facture.numero}<br/>${formatDateHeure(facture.date)}</p>
   ${facture.client ? `<p><strong>Client :</strong> ${facture.client}</p>` : ''}
   <table>
     <thead><tr><th>Produit</th><th>Qté</th><th>P.U.</th><th>Total</th></tr></thead>
@@ -247,7 +287,7 @@ export default function App() {
         )}
 
         {page === 'factures' && (
-          <PageFactures factures={factures} onAnnuler={annulerFacture} />
+          <PageFactures factures={factures} onAnnuler={annulerFacture} onPartager={partagerFacture} />
         )}
 
         {page === 'marge' && (
@@ -522,7 +562,7 @@ function PagePanier({ panier, onRetirer, total, onEmettre, nomClient, setNomClie
   )
 }
 
-function PageFactures({ factures, onAnnuler }) {
+function PageFactures({ factures, onAnnuler, onPartager }) {
   return (
     <div className="space-y-3">
       <h2 className="text-lg font-bold text-amber-900">Factures</h2>
@@ -531,17 +571,26 @@ function PageFactures({ factures, onAnnuler }) {
         <div key={f.numero} className="bg-white rounded-lg p-3 shadow flex justify-between items-start">
           <div>
             <div className="font-semibold">Facture #{f.numero}</div>
-            <div className="text-sm text-gray-600">{new Date(f.date).toLocaleString('fr-FR')}</div>
+            <div className="text-sm text-gray-600">{formatDateHeure(f.date)}</div>
             {f.client && <div className="text-sm text-gray-700">Client : {f.client}</div>}
             <div className="text-sm">Total : {formatFCFA(f.totalVente)}</div>
           </div>
-          <button
-            onClick={() => onAnnuler(f.numero)}
-            className="text-red-600 text-xl px-2"
-            aria-label="Annuler la facture"
-          >
-            🗑️
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onPartager(f)}
+              className="text-green-700 text-xl px-2"
+              aria-label="Partager la facture"
+            >
+              📤
+            </button>
+            <button
+              onClick={() => onAnnuler(f.numero)}
+              className="text-red-600 text-xl px-2"
+              aria-label="Annuler la facture"
+            >
+              🗑️
+            </button>
+          </div>
         </div>
       ))}
     </div>
