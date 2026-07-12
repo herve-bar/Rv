@@ -499,7 +499,7 @@ function PageFactures({ factures }) {
         </div>
       ))}
     </div>
-  )function PageMarge({ produits, beneficeTotal }) {
+  function PageMarge({ produits, beneficeTotal }) {
   const margePotentielleTotale = produits.reduce(
     (s, p) => s + margeUnitaire(p) * p.stock,
     0
