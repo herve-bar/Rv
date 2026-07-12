@@ -46,6 +46,7 @@ export default function App() {
   const [factures, setFactures] = useState(chargerFactures)
   const [factureNum, setFactureNum] = useState(chargerNum)
   const [panier, setPanier] = useState([])
+  const [nomClient, setNomClient] = useState('')
   const [produitPourQte, setProduitPourQte] = useState(null)
   const [qteChoisie, setQteChoisie] = useState(1)
   const [afficherAjoutProduit, setAfficherAjoutProduit] = useState(false)
@@ -110,6 +111,7 @@ export default function App() {
     const facture = {
       numero: factureNum,
       date: new Date().toISOString(),
+      client: nomClient.trim(),
       items: panier,
       totalVente,
       cout: totalCout,
@@ -128,6 +130,7 @@ export default function App() {
     )
 
     setPanier([])
+    setNomClient('')
     imprimerFacture(facture)
   }
 
@@ -156,6 +159,7 @@ export default function App() {
 <body>
   <h2>RV</h2>
   <p>Facture #${facture.numero}<br/>${new Date(facture.date).toLocaleString('fr-FR')}</p>
+  ${facture.client ? `<p><strong>Client :</strong> ${facture.client}</p>` : ''}
   <table>
     <thead><tr><th>Produit</th><th>Qté</th><th>P.U.</th><th>Total</th></tr></thead>
     <tbody>${lignes}</tbody>
@@ -219,6 +223,8 @@ export default function App() {
             onRetirer={retirerDuPanier}
             total={totalPanierVente()}
             onEmettre={emettreFacture}
+            nomClient={nomClient}
+            setNomClient={setNomClient}
           />
         )}
 
@@ -456,7 +462,7 @@ function SelecteurQuantite({ produit, qte, setQte, onConfirmer, onAnnuler }) {
   )
 }
 
-function PagePanier({ panier, onRetirer, total, onEmettre }) {
+function PagePanier({ panier, onRetirer, total, onEmettre, nomClient, setNomClient }) {
   return (
     <div className="space-y-3">
       <h2 className="text-lg font-bold text-amber-900">Panier</h2>
@@ -475,8 +481,18 @@ function PagePanier({ panier, onRetirer, total, onEmettre }) {
         </div>
       ))}
       {panier.length > 0 && (
-        <div className="bg-white rounded-lg p-3 shadow">
-          <div className="font-bold text-lg mb-2">Total : {formatFCFA(total)}</div>
+        <div className="bg-white rounded-lg p-3 shadow space-y-3">
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Nom du client (optionnel)</label>
+            <input
+              type="text"
+              value={nomClient}
+              onChange={e => setNomClient(e.target.value)}
+              className="w-full border rounded p-2"
+              placeholder="Ex : Mme Diallo"
+            />
+          </div>
+          <div className="font-bold text-lg">Total : {formatFCFA(total)}</div>
           <button onClick={onEmettre} className="w-full bg-green-700 text-white py-2 rounded font-bold">
             Émettre la facture
           </button>
@@ -495,6 +511,7 @@ function PageFactures({ factures }) {
         <div key={f.numero} className="bg-white rounded-lg p-3 shadow">
           <div className="font-semibold">Facture #{f.numero}</div>
           <div className="text-sm text-gray-600">{new Date(f.date).toLocaleString('fr-FR')}</div>
+          {f.client && <div className="text-sm text-gray-700">Client : {f.client}</div>}
           <div className="text-sm">Total : {formatFCFA(f.totalVente)}</div>
         </div>
       ))}
