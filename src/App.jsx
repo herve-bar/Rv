@@ -134,6 +134,24 @@ export default function App() {
     imprimerFacture(facture)
   }
 
+  function annulerFacture(numero) {
+    const facture = factures.find(f => f.numero === numero)
+    if (!facture) return
+    if (!window.confirm(`Annuler la facture #${numero} ? Le stock des produits vendus sera restitué. Cette action est irréversible.`)) {
+      return
+    }
+
+    setProduits(prev =>
+      prev.map(p => {
+        const item = facture.items.find(i => i.produitId === p.id)
+        if (!item) return p
+        return { ...p, stock: p.stock + item.quantite }
+      })
+    )
+
+    setFactures(prev => prev.filter(f => f.numero !== numero))
+  }
+
   function imprimerFacture(facture) {
     const lignes = facture.items
       .map(
@@ -228,7 +246,9 @@ export default function App() {
           />
         )}
 
-        {page === 'factures' && <PageFactures factures={factures} />}
+        {page === 'factures' && (
+          <PageFactures factures={factures} onAnnuler={annulerFacture} />
+        )}
 
         {page === 'marge' && (
           <PageMarge produits={produits} beneficeTotal={beneficeTotalRealise()} />
@@ -502,17 +522,26 @@ function PagePanier({ panier, onRetirer, total, onEmettre, nomClient, setNomClie
   )
 }
 
-function PageFactures({ factures }) {
+function PageFactures({ factures, onAnnuler }) {
   return (
     <div className="space-y-3">
       <h2 className="text-lg font-bold text-amber-900">Factures</h2>
       {factures.length === 0 && <p className="text-gray-500">Aucune facture.</p>}
       {[...factures].reverse().map(f => (
-        <div key={f.numero} className="bg-white rounded-lg p-3 shadow">
-          <div className="font-semibold">Facture #{f.numero}</div>
-          <div className="text-sm text-gray-600">{new Date(f.date).toLocaleString('fr-FR')}</div>
-          {f.client && <div className="text-sm text-gray-700">Client : {f.client}</div>}
-          <div className="text-sm">Total : {formatFCFA(f.totalVente)}</div>
+        <div key={f.numero} className="bg-white rounded-lg p-3 shadow flex justify-between items-start">
+          <div>
+            <div className="font-semibold">Facture #{f.numero}</div>
+            <div className="text-sm text-gray-600">{new Date(f.date).toLocaleString('fr-FR')}</div>
+            {f.client && <div className="text-sm text-gray-700">Client : {f.client}</div>}
+            <div className="text-sm">Total : {formatFCFA(f.totalVente)}</div>
+          </div>
+          <button
+            onClick={() => onAnnuler(f.numero)}
+            className="text-red-600 text-xl px-2"
+            aria-label="Annuler la facture"
+          >
+            🗑️
+          </button>
         </div>
       ))}
     </div>
