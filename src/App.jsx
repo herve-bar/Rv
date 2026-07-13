@@ -3,22 +3,19 @@ import React, { useState, useEffect } from 'react'
 const LS_PRODUITS = 'comptoir:produits'
 const LS_FACTURES = 'comptoir:factures'
 const LS_NUM = 'comptoir:factureNum'
+const LS_UTILISATEURS = 'comptoir:utilisateurs'
 
-// 👤 Chaque utilisateur a son propre mot de passe. Ajoute/modifie/retire des lignes ici à volonté.
-const UTILISATEURS = [
+// 👤 Utilisateurs par défaut, utilisés uniquement la toute première fois (avant que tu en gères depuis l'appli).
+const UTILISATEURS_PAR_DEFAUT = [
   { nom: 'Hervé', motDePasse: 'rv2026' },
-  { nom: 'Employé 1', motDePasse: 'emp1-2026' },
-  { nom: 'Employé 2', motDePasse: 'emp2-2026' },
-  { nom: 'Employé 3', motDePasse: 'emp3-2026' },
-  { nom: 'Employé 4', motDePasse: 'emp4-2026' },
 ]
 
-// 🔐 Mot de passe supplémentaire pour Recette, Marge, et la modification du stock (niveau patron)
+// 🔐 Mot de passe supplémentaire pour Recette, Marge, Utilisateurs, et la modification du stock (niveau patron)
 const MOT_DE_PASSE_PAGES = 'marge2026'
 
 const LS_SESSION_VENDEUR = 'comptoir:sessionVendeur'
 const LS_SESSION_PAGES = 'comptoir:sessionPages'
-const PAGES_PROTEGEES = ['recette', 'marge']
+const PAGES_PROTEGEES = ['recette', 'marge', 'utilisateurs']
 
 function chargerProduits() {
   const raw = localStorage.getItem(LS_PRODUITS)
@@ -37,6 +34,12 @@ function chargerFactures() {
 function chargerNum() {
   const raw = localStorage.getItem(LS_NUM)
   return raw ? parseInt(raw, 10) : 1
+}
+
+function chargerUtilisateurs() {
+  const raw = localStorage.getItem(LS_UTILISATEURS)
+  if (raw) return JSON.parse(raw)
+  return UTILISATEURS_PAR_DEFAUT
 }
 
 function prixAchatUnitaire(p) {
@@ -119,6 +122,9 @@ export default function App() {
   const [qteChoisie, setQteChoisie] = useState(1)
   const [afficherAjoutProduit, setAfficherAjoutProduit] = useState(false)
   const [produitAModifier, setProduitAModifier] = useState(null)
+  const [utilisateurs, setUtilisateurs] = useState(chargerUtilisateurs)
+  const [afficherAjoutUtilisateur, setAfficherAjoutUtilisateur] = useState(false)
+  const [utilisateurAModifier, setUtilisateurAModifier] = useState(null)
 
   useEffect(() => {
     localStorage.setItem(LS_PRODUITS, JSON.stringify(produits))
@@ -132,8 +138,12 @@ export default function App() {
     localStorage.setItem(LS_NUM, String(factureNum))
   }, [factureNum])
 
+  useEffect(() => {
+    localStorage.setItem(LS_UTILISATEURS, JSON.stringify(utilisateurs))
+  }, [utilisateurs])
+
   function seConnecter(motDePasse) {
-    const utilisateur = UTILISATEURS.find(u => u.motDePasse === motDePasse)
+    const utilisateur = utilisateurs.find(u => u.motDePasse === motDePasse)
     if (utilisateur) {
       sessionStorage.setItem(LS_SESSION_VENDEUR, utilisateur.nom)
       setVendeurActuel(utilisateur.nom)
@@ -342,6 +352,36 @@ export default function App() {
     setProduits(prev => prev.filter(p => p.id !== id))
   }
 
+  function ajouterUtilisateur(data) {
+    if (utilisateurs.some(u => u.motDePasse === data.motDePasse)) {
+      alert('Ce mot de passe est déjà utilisé par un autre utilisateur. Choisis-en un autre.')
+      return
+    }
+    setUtilisateurs(prev => [...prev, data])
+    setAfficherAjoutUtilisateur(false)
+  }
+
+  function modifierUtilisateur(ancienNom, data) {
+    if (utilisateurs.some(u => u.nom !== ancienNom && u.motDePasse === data.motDePasse)) {
+      alert('Ce mot de passe est déjà utilisé par un autre utilisateur. Choisis-en un autre.')
+      return
+    }
+    setUtilisateurs(prev => prev.map(u => (u.nom === ancienNom ? data : u)))
+    if (vendeurActuel === ancienNom) {
+      sessionStorage.setItem(LS_SESSION_VENDEUR, data.nom)
+      setVendeurActuel(data.nom)
+    }
+    setUtilisateurAModifier(null)
+  }
+
+  function supprimerUtilisateur(nom) {
+    if (utilisateurs.length <= 1) {
+      alert("Impossible de supprimer le dernier utilisateur restant.")
+      return
+    }
+    setUtilisateurs(prev => prev.filter(u => u.nom !== nom))
+  }
+
   if (!vendeurActuel) {
     return <EcranConnexion onValider={seConnecter} />
   }
@@ -392,6 +432,15 @@ export default function App() {
         {page === 'marge' && (
           <PageMarge produits={produits} beneficeTotal={beneficeTotalRealise()} />
         )}
+
+        {page === 'utilisateurs' && (
+          <PageUtilisateurs
+            utilisateurs={utilisateurs}
+            onOuvrirAjout={() => setAfficherAjoutUtilisateur(true)}
+            onModifier={u => setUtilisateurAModifier(u)}
+            onSupprimer={supprimerUtilisateur}
+          />
+        )}
       </main>
 
       {produitPourQte && (
@@ -421,6 +470,23 @@ export default function App() {
         />
       )}
 
+      {afficherAjoutUtilisateur && (
+        <FormUtilisateur
+          titre="Nouvel utilisateur"
+          onValider={ajouterUtilisateur}
+          onAnnuler={() => setAfficherAjoutUtilisateur(false)}
+        />
+      )}
+
+      {utilisateurAModifier && (
+        <FormUtilisateur
+          titre="Modifier l'utilisateur"
+          utilisateur={utilisateurAModifier}
+          onValider={data => modifierUtilisateur(utilisateurAModifier.nom, data)}
+          onAnnuler={() => setUtilisateurAModifier(null)}
+        />
+      )}
+
       {(pageAttendue || produitAModifierEnAttente) && (
         <EcranMotDePassePage
           onValider={validerMotDePassePage}
@@ -443,6 +509,9 @@ export default function App() {
         </button>
         <button onClick={() => allerAPage('marge')} className={page === 'marge' ? 'font-bold underline' : ''}>
           📊 Marge {!pagesDeverrouillees && '🔒'}
+        </button>
+        <button onClick={() => allerAPage('utilisateurs')} className={page === 'utilisateurs' ? 'font-bold underline' : ''}>
+          👥 Utilisateurs {!pagesDeverrouillees && '🔒'}
         </button>
       </nav>
     </div>
@@ -865,6 +934,97 @@ function PageMarge({ produits, beneficeTotal }) {
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+function PageUtilisateurs({ utilisateurs, onOuvrirAjout, onModifier, onSupprimer }) {
+  function confirmerSuppression(u) {
+    if (window.confirm(`Supprimer l'utilisateur "${u.nom}" ? Cette action est irréversible.`)) {
+      onSupprimer(u.nom)
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-bold text-amber-900">Utilisateurs</h2>
+        <button onClick={onOuvrirAjout} className="bg-green-700 text-white px-3 py-2 rounded text-sm">
+          + Utilisateur
+        </button>
+      </div>
+      {utilisateurs.map(u => (
+        <div key={u.nom} className="bg-white rounded-lg p-3 shadow flex justify-between items-center">
+          <div>
+            <div className="font-semibold">{u.nom}</div>
+            <div className="text-sm text-gray-600">Mot de passe : {u.motDePasse}</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onModifier(u)}
+              className="text-amber-800 text-xl px-2"
+              aria-label="Modifier l'utilisateur"
+            >
+              ✏️
+            </button>
+            <button
+              onClick={() => confirmerSuppression(u)}
+              className="text-red-600 text-xl px-2"
+              aria-label="Supprimer l'utilisateur"
+            >
+              🗑️
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function FormUtilisateur({ titre, utilisateur, onValider, onAnnuler }) {
+  const [nom, setNom] = useState(utilisateur?.nom || '')
+  const [motDePasse, setMotDePasse] = useState(utilisateur?.motDePasse || '')
+
+  function valider() {
+    if (!nom.trim() || !motDePasse.trim()) {
+      alert('Merci de remplir le nom et le mot de passe.')
+      return
+    }
+    onValider({ nom: nom.trim(), motDePasse: motDePasse.trim() })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-4 w-full max-w-sm space-y-2">
+        <h3 className="font-bold text-lg mb-2">{titre}</h3>
+
+        <label className="block text-sm text-gray-600">Nom</label>
+        <input
+          type="text"
+          value={nom}
+          onChange={e => setNom(e.target.value)}
+          className="w-full border rounded p-2"
+          placeholder="Ex : Fatou"
+        />
+
+        <label className="block text-sm text-gray-600">Mot de passe</label>
+        <input
+          type="text"
+          value={motDePasse}
+          onChange={e => setMotDePasse(e.target.value)}
+          className="w-full border rounded p-2"
+          placeholder="Ex : fatou2026"
+        />
+
+        <div className="flex gap-2 pt-2">
+          <button onClick={onAnnuler} className="flex-1 bg-gray-200 py-2 rounded">
+            Annuler
+          </button>
+          <button onClick={valider} className="flex-1 bg-amber-700 text-white py-2 rounded">
+            {utilisateur ? 'Enregistrer' : 'Ajouter'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
