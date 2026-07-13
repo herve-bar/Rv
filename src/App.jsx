@@ -4,6 +4,14 @@ const LS_PRODUITS = 'comptoir:produits'
 const LS_FACTURES = 'comptoir:factures'
 const LS_NUM = 'comptoir:factureNum'
 
+// 🔐 Mots de passe : change-les ici si besoin
+const MOT_DE_PASSE_APP = 'rv2026'        // pour ouvrir l'application
+const MOT_DE_PASSE_PAGES = 'marge2026'   // pour accéder à Recette et Marge
+
+const LS_SESSION_APP = 'comptoir:sessionApp'
+const LS_SESSION_PAGES = 'comptoir:sessionPages'
+const PAGES_PROTEGEES = ['recette', 'marge']
+
 function chargerProduits() {
   const raw = localStorage.getItem(LS_PRODUITS)
   if (raw) return JSON.parse(raw)
@@ -85,6 +93,12 @@ async function partagerFacture(facture) {
 }
 
 export default function App() {
+  const [connecte, setConnecte] = useState(() => sessionStorage.getItem(LS_SESSION_APP) === 'oui')
+  const [pagesDeverrouillees, setPagesDeverrouillees] = useState(
+    () => sessionStorage.getItem(LS_SESSION_PAGES) === 'oui'
+  )
+  const [pageAttendue, setPageAttendue] = useState(null)
+
   const [page, setPage] = useState('stock')
   const [produits, setProduits] = useState(chargerProduits)
   const [factures, setFactures] = useState(chargerFactures)
@@ -107,6 +121,42 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(LS_NUM, String(factureNum))
   }, [factureNum])
+
+  function seConnecter(motDePasse) {
+    if (motDePasse === MOT_DE_PASSE_APP) {
+      sessionStorage.setItem(LS_SESSION_APP, 'oui')
+      setConnecte(true)
+      return true
+    }
+    return false
+  }
+
+  function seDeconnecter() {
+    sessionStorage.removeItem(LS_SESSION_APP)
+    sessionStorage.removeItem(LS_SESSION_PAGES)
+    setConnecte(false)
+    setPagesDeverrouillees(false)
+    setPage('stock')
+  }
+
+  function allerAPage(cible) {
+    if (PAGES_PROTEGEES.includes(cible) && !pagesDeverrouillees) {
+      setPageAttendue(cible)
+      return
+    }
+    setPage(cible)
+  }
+
+  function validerMotDePassePage(motDePasse) {
+    if (motDePasse === MOT_DE_PASSE_PAGES) {
+      sessionStorage.setItem(LS_SESSION_PAGES, 'oui')
+      setPagesDeverrouillees(true)
+      setPage(pageAttendue)
+      setPageAttendue(null)
+      return true
+    }
+    return false
+  }
 
   function ouvrirSelecteurQte(produit) {
     setProduitPourQte(produit)
@@ -260,11 +310,20 @@ export default function App() {
     setProduits(prev => prev.filter(p => p.id !== id))
   }
 
+  if (!connecte) {
+    return <EcranConnexion onValider={seConnecter} />
+  }
+
   return (
     <div className="min-h-screen bg-amber-50 pb-20">
-      <header className="bg-amber-800 text-white p-4 flex items-center gap-2">
-        <span className="text-2xl font-bold">RV</span>
-        <span className="text-sm opacity-80">Gestion de comptoir</span>
+      <header className="bg-amber-800 text-white p-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl font-bold">RV</span>
+          <span className="text-sm opacity-80">Gestion de comptoir</span>
+        </div>
+        <button onClick={seDeconnecter} className="text-sm bg-amber-900 px-3 py-1 rounded">
+          Déconnexion
+        </button>
       </header>
 
       <main className="p-4">
@@ -330,23 +389,104 @@ export default function App() {
         />
       )}
 
+      {pageAttendue && (
+        <EcranMotDePassePage
+          onValider={validerMotDePassePage}
+          onAnnuler={() => setPageAttendue(null)}
+        />
+      )}
+
       <nav className="fixed bottom-0 left-0 right-0 bg-amber-800 text-white flex justify-around p-2 overflow-x-auto">
-        <button onClick={() => setPage('stock')} className={page === 'stock' ? 'font-bold underline' : ''}>
+        <button onClick={() => allerAPage('stock')} className={page === 'stock' ? 'font-bold underline' : ''}>
           📦 Stock
         </button>
-        <button onClick={() => setPage('panier')} className={page === 'panier' ? 'font-bold underline' : ''}>
+        <button onClick={() => allerAPage('panier')} className={page === 'panier' ? 'font-bold underline' : ''}>
           🛒 Panier ({panier.length})
         </button>
-        <button onClick={() => setPage('factures')} className={page === 'factures' ? 'font-bold underline' : ''}>
+        <button onClick={() => allerAPage('factures')} className={page === 'factures' ? 'font-bold underline' : ''}>
           🧾 Factures
         </button>
-        <button onClick={() => setPage('recette')} className={page === 'recette' ? 'font-bold underline' : ''}>
-          💰 Recette
+        <button onClick={() => allerAPage('recette')} className={page === 'recette' ? 'font-bold underline' : ''}>
+          💰 Recette {!pagesDeverrouillees && '🔒'}
         </button>
-        <button onClick={() => setPage('marge')} className={page === 'marge' ? 'font-bold underline' : ''}>
-          📊 Marge
+        <button onClick={() => allerAPage('marge')} className={page === 'marge' ? 'font-bold underline' : ''}>
+          📊 Marge {!pagesDeverrouillees && '🔒'}
         </button>
       </nav>
+    </div>
+  )
+}
+
+function EcranConnexion({ onValider }) {
+  const [motDePasse, setMotDePasse] = useState('')
+  const [erreur, setErreur] = useState(false)
+
+  function valider() {
+    const ok = onValider(motDePasse)
+    if (!ok) {
+      setErreur(true)
+      setMotDePasse('')
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-amber-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow space-y-3 text-center">
+        <div className="text-3xl font-bold text-amber-900">RV</div>
+        <div className="text-sm text-gray-600 mb-2">Gestion de comptoir</div>
+        <input
+          type="password"
+          value={motDePasse}
+          onChange={e => { setMotDePasse(e.target.value); setErreur(false) }}
+          onKeyDown={e => e.key === 'Enter' && valider()}
+          className="w-full border rounded p-3 text-center"
+          placeholder="Mot de passe"
+          autoFocus
+        />
+        {erreur && <div className="text-red-600 text-sm">Mot de passe incorrect.</div>}
+        <button onClick={valider} className="w-full bg-amber-700 text-white py-2 rounded font-bold">
+          Se connecter
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function EcranMotDePassePage({ onValider, onAnnuler }) {
+  const [motDePasse, setMotDePasse] = useState('')
+  const [erreur, setErreur] = useState(false)
+
+  function valider() {
+    const ok = onValider(motDePasse)
+    if (!ok) {
+      setErreur(true)
+      setMotDePasse('')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-4 w-full max-w-sm space-y-3 text-center">
+        <div className="text-lg font-bold">🔒 Accès protégé</div>
+        <input
+          type="password"
+          value={motDePasse}
+          onChange={e => { setMotDePasse(e.target.value); setErreur(false) }}
+          onKeyDown={e => e.key === 'Enter' && valider()}
+          className="w-full border rounded p-3 text-center"
+          placeholder="Mot de passe"
+          autoFocus
+        />
+        {erreur && <div className="text-red-600 text-sm">Mot de passe incorrect.</div>}
+        <div className="flex gap-2 pt-1">
+          <button onClick={onAnnuler} className="flex-1 bg-gray-200 py-2 rounded">
+            Annuler
+          </button>
+          <button onClick={valider} className="flex-1 bg-amber-700 text-white py-2 rounded">
+            Valider
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
