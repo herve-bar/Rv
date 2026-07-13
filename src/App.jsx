@@ -4,16 +4,18 @@ const LS_PRODUITS = 'comptoir:produits'
 const LS_FACTURES = 'comptoir:factures'
 const LS_NUM = 'comptoir:factureNum'
 
-// 🔐 Mots de passe : change-les ici à volonté
-const MOT_DE_PASSE_APP = 'rv2026'        // pour ouvrir l'application (niveau employé)
-const MOT_DE_PASSE_PAGES = 'marge2026'   // pour accéder à Recette et Marge (niveau patron)
+// 👤 Chaque utilisateur a son propre mot de passe. Ajoute/modifie/retire des lignes ici à volonté.
+const UTILISATEURS = [
+  { nom: 'Hervé', motDePasse: 'rv2026' },
+  { nom: 'Employé 1', motDePasse: 'emp1-2026' },
+  { nom: 'Employé 2', motDePasse: 'emp2-2026' },
+]
 
-// 👤 Liste des personnes qui utilisent l'app. Ajoute/retire des noms ici librement.
-const EMPLOYES = ['Hervé', 'Employé 1', 'Employé 2']
+// 🔐 Mot de passe supplémentaire pour Recette et Marge (niveau patron)
+const MOT_DE_PASSE_PAGES = 'marge2026'
 
-const LS_SESSION_APP = 'comptoir:sessionApp'
-const LS_SESSION_PAGES = 'comptoir:sessionPages'
 const LS_SESSION_VENDEUR = 'comptoir:sessionVendeur'
+const LS_SESSION_PAGES = 'comptoir:sessionPages'
 const PAGES_PROTEGEES = ['recette', 'marge']
 
 function chargerProduits() {
@@ -98,11 +100,10 @@ async function partagerFacture(facture) {
 }
 
 export default function App() {
-  const [connecte, setConnecte] = useState(() => sessionStorage.getItem(LS_SESSION_APP) === 'oui')
+  const [vendeurActuel, setVendeurActuel] = useState(() => sessionStorage.getItem(LS_SESSION_VENDEUR) || '')
   const [pagesDeverrouillees, setPagesDeverrouillees] = useState(
     () => sessionStorage.getItem(LS_SESSION_PAGES) === 'oui'
   )
-  const [vendeurActuel, setVendeurActuel] = useState(() => sessionStorage.getItem(LS_SESSION_VENDEUR) || '')
   const [pageAttendue, setPageAttendue] = useState(null)
 
   const [page, setPage] = useState('stock')
@@ -129,31 +130,20 @@ export default function App() {
   }, [factureNum])
 
   function seConnecter(motDePasse) {
-    if (motDePasse === MOT_DE_PASSE_APP) {
-      sessionStorage.setItem(LS_SESSION_APP, 'oui')
-      setConnecte(true)
+    const utilisateur = UTILISATEURS.find(u => u.motDePasse === motDePasse)
+    if (utilisateur) {
+      sessionStorage.setItem(LS_SESSION_VENDEUR, utilisateur.nom)
+      setVendeurActuel(utilisateur.nom)
       return true
     }
     return false
   }
 
-  function choisirVendeur(nom) {
-    sessionStorage.setItem(LS_SESSION_VENDEUR, nom)
-    setVendeurActuel(nom)
-  }
-
-  function changerVendeur() {
-    sessionStorage.removeItem(LS_SESSION_VENDEUR)
-    setVendeurActuel('')
-  }
-
   function seDeconnecter() {
-    sessionStorage.removeItem(LS_SESSION_APP)
-    sessionStorage.removeItem(LS_SESSION_PAGES)
     sessionStorage.removeItem(LS_SESSION_VENDEUR)
-    setConnecte(false)
-    setPagesDeverrouillees(false)
+    sessionStorage.removeItem(LS_SESSION_PAGES)
     setVendeurActuel('')
+    setPagesDeverrouillees(false)
     setPage('stock')
   }
 
@@ -330,12 +320,8 @@ export default function App() {
     setProduits(prev => prev.filter(p => p.id !== id))
   }
 
-  if (!connecte) {
-    return <EcranConnexion onValider={seConnecter} />
-  }
-
   if (!vendeurActuel) {
-    return <EcranChoixVendeur onChoisir={choisirVendeur} />
+    return <EcranConnexion onValider={seConnecter} />
   }
 
   return (
@@ -345,14 +331,9 @@ export default function App() {
           <span className="text-2xl font-bold">RV</span>
           <span className="text-sm opacity-80">{vendeurActuel}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={changerVendeur} className="text-sm bg-amber-900 px-2 py-1 rounded">
-            Changer
-          </button>
-          <button onClick={seDeconnecter} className="text-sm bg-amber-900 px-2 py-1 rounded">
-            Déconnexion
-          </button>
-        </div>
+        <button onClick={seDeconnecter} className="text-sm bg-amber-900 px-3 py-1 rounded">
+          Déconnexion
+        </button>
       </header>
 
       <main className="p-4">
@@ -469,34 +450,13 @@ function EcranConnexion({ onValider }) {
           onChange={e => { setMotDePasse(e.target.value); setErreur(false) }}
           onKeyDown={e => e.key === 'Enter' && valider()}
           className="w-full border rounded p-3 text-center"
-          placeholder="Mot de passe"
+          placeholder="Ton mot de passe"
           autoFocus
         />
         {erreur && <div className="text-red-600 text-sm">Mot de passe incorrect.</div>}
         <button onClick={valider} className="w-full bg-amber-700 text-white py-2 rounded font-bold">
           Se connecter
         </button>
-      </div>
-    </div>
-  )
-}
-
-function EcranChoixVendeur({ onChoisir }) {
-  return (
-    <div className="min-h-screen bg-amber-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow space-y-3 text-center">
-        <div className="text-lg font-bold text-amber-900">Qui utilise l'app ?</div>
-        <div className="space-y-2">
-          {EMPLOYES.map(nom => (
-            <button
-              key={nom}
-              onClick={() => onChoisir(nom)}
-              className="w-full bg-amber-700 text-white py-3 rounded font-bold"
-            >
-              {nom}
-            </button>
-          ))}
-        </div>
       </div>
     </div>
   )
