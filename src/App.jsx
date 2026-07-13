@@ -4,12 +4,16 @@ const LS_PRODUITS = 'comptoir:produits'
 const LS_FACTURES = 'comptoir:factures'
 const LS_NUM = 'comptoir:factureNum'
 
-// 🔐 Mots de passe : change-les ici si besoin
-const MOT_DE_PASSE_APP = 'rv2026'        // pour ouvrir l'application
-const MOT_DE_PASSE_PAGES = 'marge2026'   // pour accéder à Recette et Marge
+// 🔐 Mots de passe : change-les ici à volonté
+const MOT_DE_PASSE_APP = 'rv2026'        // pour ouvrir l'application (niveau employé)
+const MOT_DE_PASSE_PAGES = 'marge2026'   // pour accéder à Recette et Marge (niveau patron)
+
+// 👤 Liste des personnes qui utilisent l'app. Ajoute/retire des noms ici librement.
+const EMPLOYES = ['Hervé', 'Employé 1', 'Employé 2']
 
 const LS_SESSION_APP = 'comptoir:sessionApp'
 const LS_SESSION_PAGES = 'comptoir:sessionPages'
+const LS_SESSION_VENDEUR = 'comptoir:sessionVendeur'
 const PAGES_PROTEGEES = ['recette', 'marge']
 
 function chargerProduits() {
@@ -68,6 +72,7 @@ function genererTexteFacture(facture) {
     `🧾 RV - Facture #${facture.numero}\n` +
     `${formatDateHeure(facture.date)}\n` +
     (facture.client ? `Client : ${facture.client}\n` : '') +
+    (facture.vendeur ? `Vendeur : ${facture.vendeur}\n` : '') +
     `\n${lignes}\n\n` +
     `Total : ${formatFCFA(facture.totalVente)}`
   )
@@ -97,6 +102,7 @@ export default function App() {
   const [pagesDeverrouillees, setPagesDeverrouillees] = useState(
     () => sessionStorage.getItem(LS_SESSION_PAGES) === 'oui'
   )
+  const [vendeurActuel, setVendeurActuel] = useState(() => sessionStorage.getItem(LS_SESSION_VENDEUR) || '')
   const [pageAttendue, setPageAttendue] = useState(null)
 
   const [page, setPage] = useState('stock')
@@ -131,11 +137,23 @@ export default function App() {
     return false
   }
 
+  function choisirVendeur(nom) {
+    sessionStorage.setItem(LS_SESSION_VENDEUR, nom)
+    setVendeurActuel(nom)
+  }
+
+  function changerVendeur() {
+    sessionStorage.removeItem(LS_SESSION_VENDEUR)
+    setVendeurActuel('')
+  }
+
   function seDeconnecter() {
     sessionStorage.removeItem(LS_SESSION_APP)
     sessionStorage.removeItem(LS_SESSION_PAGES)
+    sessionStorage.removeItem(LS_SESSION_VENDEUR)
     setConnecte(false)
     setPagesDeverrouillees(false)
+    setVendeurActuel('')
     setPage('stock')
   }
 
@@ -206,6 +224,7 @@ export default function App() {
       numero: factureNum,
       date: new Date().toISOString(),
       client: nomClient.trim(),
+      vendeur: vendeurActuel,
       items: panier,
       totalVente,
       cout: totalCout,
@@ -272,6 +291,7 @@ export default function App() {
   <h2>RV</h2>
   <p>Facture #${facture.numero}<br/>${formatDateHeure(facture.date)}</p>
   ${facture.client ? `<p><strong>Client :</strong> ${facture.client}</p>` : ''}
+  ${facture.vendeur ? `<p><strong>Vendeur :</strong> ${facture.vendeur}</p>` : ''}
   <table>
     <thead><tr><th>Produit</th><th>Qté</th><th>P.U.</th><th>Total</th></tr></thead>
     <tbody>${lignes}</tbody>
@@ -314,16 +334,25 @@ export default function App() {
     return <EcranConnexion onValider={seConnecter} />
   }
 
+  if (!vendeurActuel) {
+    return <EcranChoixVendeur onChoisir={choisirVendeur} />
+  }
+
   return (
     <div className="min-h-screen bg-amber-50 pb-20">
       <header className="bg-amber-800 text-white p-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-2xl font-bold">RV</span>
-          <span className="text-sm opacity-80">Gestion de comptoir</span>
+          <span className="text-sm opacity-80">{vendeurActuel}</span>
         </div>
-        <button onClick={seDeconnecter} className="text-sm bg-amber-900 px-3 py-1 rounded">
-          Déconnexion
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={changerVendeur} className="text-sm bg-amber-900 px-2 py-1 rounded">
+            Changer
+          </button>
+          <button onClick={seDeconnecter} className="text-sm bg-amber-900 px-2 py-1 rounded">
+            Déconnexion
+          </button>
+        </div>
       </header>
 
       <main className="p-4">
@@ -447,6 +476,27 @@ function EcranConnexion({ onValider }) {
         <button onClick={valider} className="w-full bg-amber-700 text-white py-2 rounded font-bold">
           Se connecter
         </button>
+      </div>
+    </div>
+  )
+}
+
+function EcranChoixVendeur({ onChoisir }) {
+  return (
+    <div className="min-h-screen bg-amber-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow space-y-3 text-center">
+        <div className="text-lg font-bold text-amber-900">Qui utilise l'app ?</div>
+        <div className="space-y-2">
+          {EMPLOYES.map(nom => (
+            <button
+              key={nom}
+              onClick={() => onChoisir(nom)}
+              className="w-full bg-amber-700 text-white py-3 rounded font-bold"
+            >
+              {nom}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -724,6 +774,7 @@ function PageFactures({ factures, onAnnuler, onPartager }) {
             <div className="font-semibold">Facture #{f.numero}</div>
             <div className="text-sm text-gray-600">{formatDateHeure(f.date)}</div>
             {f.client && <div className="text-sm text-gray-700">Client : {f.client}</div>}
+            {f.vendeur && <div className="text-sm text-gray-700">Vendeur : {f.vendeur}</div>}
             <div className="text-sm">Total : {formatFCFA(f.totalVente)}</div>
           </div>
           <div className="flex items-center gap-2">
@@ -763,6 +814,12 @@ function PageRecette({ factures }) {
 
   const aujourdHui = formatDateSeule(new Date().toISOString())
 
+  const parVendeur = {}
+  factures.forEach(f => {
+    const nom = f.vendeur || 'Non renseigné'
+    parVendeur[nom] = (parVendeur[nom] || 0) + f.totalVente
+  })
+
   return (
     <div className="space-y-3">
       <h2 className="text-lg font-bold text-amber-900">Recette journalière</h2>
@@ -780,6 +837,18 @@ function PageRecette({ factures }) {
           <div className="text-lg font-bold text-amber-900">{formatFCFA(parJour[jour])}</div>
         </div>
       ))}
+
+      {Object.keys(parVendeur).length > 0 && (
+        <>
+          <h3 className="text-md font-bold text-amber-900 pt-2">Total par vendeur</h3>
+          {Object.keys(parVendeur).map(nom => (
+            <div key={nom} className="bg-white rounded-lg p-3 shadow flex justify-between items-center">
+              <div className="font-semibold">{nom}</div>
+              <div className="font-bold text-amber-900">{formatFCFA(parVendeur[nom])}</div>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   )
 }
