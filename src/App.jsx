@@ -9,9 +9,11 @@ const UTILISATEURS = [
   { nom: 'Hervé', motDePasse: 'rv2026' },
   { nom: 'Employé 1', motDePasse: 'emp1-2026' },
   { nom: 'Employé 2', motDePasse: 'emp2-2026' },
+  { nom: 'Employé 3', motDePasse: 'emp3-2026' },
+  { nom: 'Employé 4', motDePasse: 'emp4-2026' },
 ]
 
-// 🔐 Mot de passe supplémentaire pour Recette et Marge (niveau patron)
+// 🔐 Mot de passe supplémentaire pour Recette, Marge, et la modification du stock (niveau patron)
 const MOT_DE_PASSE_PAGES = 'marge2026'
 
 const LS_SESSION_VENDEUR = 'comptoir:sessionVendeur'
@@ -105,6 +107,7 @@ export default function App() {
     () => sessionStorage.getItem(LS_SESSION_PAGES) === 'oui'
   )
   const [pageAttendue, setPageAttendue] = useState(null)
+  const [produitAModifierEnAttente, setProduitAModifierEnAttente] = useState(null)
 
   const [page, setPage] = useState('stock')
   const [produits, setProduits] = useState(chargerProduits)
@@ -155,15 +158,34 @@ export default function App() {
     setPage(cible)
   }
 
+  function demanderModificationProduit(p) {
+    if (!pagesDeverrouillees) {
+      setProduitAModifierEnAttente(p)
+      return
+    }
+    setProduitAModifier(p)
+  }
+
   function validerMotDePassePage(motDePasse) {
     if (motDePasse === MOT_DE_PASSE_PAGES) {
       sessionStorage.setItem(LS_SESSION_PAGES, 'oui')
       setPagesDeverrouillees(true)
-      setPage(pageAttendue)
-      setPageAttendue(null)
+      if (pageAttendue) {
+        setPage(pageAttendue)
+        setPageAttendue(null)
+      }
+      if (produitAModifierEnAttente) {
+        setProduitAModifier(produitAModifierEnAttente)
+        setProduitAModifierEnAttente(null)
+      }
       return true
     }
     return false
+  }
+
+  function annulerDemandeMotDePasse() {
+    setPageAttendue(null)
+    setProduitAModifierEnAttente(null)
   }
 
   function ouvrirSelecteurQte(produit) {
@@ -344,7 +366,7 @@ export default function App() {
             panier={panier}
             onOuvrirAjout={() => setAfficherAjoutProduit(true)}
             onSupprimer={supprimerProduit}
-            onModifier={p => setProduitAModifier(p)}
+            onModifier={demanderModificationProduit}
           />
         )}
 
@@ -399,10 +421,10 @@ export default function App() {
         />
       )}
 
-      {pageAttendue && (
+      {(pageAttendue || produitAModifierEnAttente) && (
         <EcranMotDePassePage
           onValider={validerMotDePassePage}
-          onAnnuler={() => setPageAttendue(null)}
+          onAnnuler={annulerDemandeMotDePasse}
         />
       )}
 
