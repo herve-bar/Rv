@@ -47,6 +47,10 @@ function formatDateHeure(dateStr) {
   return `${date} à ${heure}`
 }
 
+function formatDateSeule(dateStr) {
+  return new Date(dateStr).toLocaleDateString('fr-FR')
+}
+
 function genererTexteFacture(facture) {
   const lignes = facture.items
     .map(i => `${i.nom} x${i.quantite} = ${formatFCFA(i.prixVente * i.quantite)}`)
@@ -290,6 +294,10 @@ export default function App() {
           <PageFactures factures={factures} onAnnuler={annulerFacture} onPartager={partagerFacture} />
         )}
 
+        {page === 'recette' && (
+          <PageRecette factures={factures} />
+        )}
+
         {page === 'marge' && (
           <PageMarge produits={produits} beneficeTotal={beneficeTotalRealise()} />
         )}
@@ -322,7 +330,7 @@ export default function App() {
         />
       )}
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-amber-800 text-white flex justify-around p-2">
+      <nav className="fixed bottom-0 left-0 right-0 bg-amber-800 text-white flex justify-around p-2 overflow-x-auto">
         <button onClick={() => setPage('stock')} className={page === 'stock' ? 'font-bold underline' : ''}>
           📦 Stock
         </button>
@@ -331,6 +339,9 @@ export default function App() {
         </button>
         <button onClick={() => setPage('factures')} className={page === 'factures' ? 'font-bold underline' : ''}>
           🧾 Factures
+        </button>
+        <button onClick={() => setPage('recette')} className={page === 'recette' ? 'font-bold underline' : ''}>
+          💰 Recette
         </button>
         <button onClick={() => setPage('marge')} className={page === 'marge' ? 'font-bold underline' : ''}>
           📊 Marge
@@ -591,6 +602,42 @@ function PageFactures({ factures, onAnnuler, onPartager }) {
               🗑️
             </button>
           </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PageRecette({ factures }) {
+  const parJour = {}
+  factures.forEach(f => {
+    const jour = formatDateSeule(f.date)
+    parJour[jour] = (parJour[jour] || 0) + f.totalVente
+  })
+
+  const jours = Object.keys(parJour).sort((a, b) => {
+    const [ja, ma, aa] = a.split('/')
+    const [jb, mb, ab] = b.split('/')
+    return new Date(`${ab}-${mb}-${jb}`) - new Date(`${aa}-${ma}-${ja}`)
+  })
+
+  const aujourdHui = formatDateSeule(new Date().toISOString())
+
+  return (
+    <div className="space-y-3">
+      <h2 className="text-lg font-bold text-amber-900">Recette journalière</h2>
+      {jours.length === 0 && <p className="text-gray-500">Aucune vente enregistrée.</p>}
+      {jours.map(jour => (
+        <div
+          key={jour}
+          className={`rounded-lg p-3 shadow flex justify-between items-center ${
+            jour === aujourdHui ? 'bg-amber-200' : 'bg-white'
+          }`}
+        >
+          <div className="font-semibold">
+            {jour} {jour === aujourdHui && <span className="text-xs text-amber-800">(aujourd'hui)</span>}
+          </div>
+          <div className="text-lg font-bold text-amber-900">{formatFCFA(parJour[jour])}</div>
         </div>
       ))}
     </div>
